@@ -1,0 +1,4 @@
+[submodule "enet-server/pyenet"]
+	path = enet-server/pyenet
+	url = https://github.com/piqueserver/pyenet
+	dirty = ignore

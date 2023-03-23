@@ -1,0 +1,97 @@
+import kcp from "node-kcp-token";
+import dgram from "node:dgram";
+import IncomingPacket from "./IncomingPacket";
+// import HandshakePacket from "./handshake/HandshakePacket";
+
+// Create KCP server instance
+const kcpServer = dgram.createSocket("udp4");
+const kcpClients: Record<string, kcp.KCP> = {};
+const interval = 200;
+
+kcpServer.on("message", (msg, remoteInfo) => {
+  console.log(`[UDP] got message: ${msg.toString("hex")}, length: ${msg.byteLength}`);
+  kcpServer.send("{retcode:0}", remoteInfo.port, remoteInfo.address);
+  console.log(new IncomingPacket(msg));
+  // // WTF CBT1's handshake has 40 bytes, rather than 20 bytes
+  // if(msg.byteLength <= 41) {
+  //   const handshake = handleHandshake(msg, msg.readUInt8(0));
+  //   if(handshake) {
+  //     const handshakeEncoded = handshake.encode();
+  //     kcpServer.send(handshakeEncoded, 0, handshakeEncoded.byteLength, remoteInfo.port, remoteInfo.address);
+
+  //     console.log(`[UDP] sending handshake response: ${handshakeEncoded.toString("hex")}`);
+  //     return;
+  //   }
+  // }
+
+  // Stole some code from pancake which was also stolen
+  const kcpInfo = `${remoteInfo.address}_${remoteInfo.port}_${msg.readUInt32LE(0).toString(16)}`;
+  if(!kcpClients[kcpInfo]) {
+    const kcpObject = new kcp.KCP(msg.readUInt32LE(0), msg.readUInt32LE(4), remoteInfo);
+    kcpObject.nodelay(0, interval, 0, 0);
+    kcpClients[kcpInfo] = kcpObject;
+
+    console.log(`[KCP] Instance created: ${kcpInfo}`);
+  }
+
+  const kcpObject = kcpClients[kcpInfo];
+  kcpObject.output((data, size, context) => {
+    kcpServer.send(data, 0, size, context.port, context.address);
+    console.log(data, size, context);
+  });
+  kcpObject.input(msg);
+  kcpObject.update(Date.now());
+  kcpObject.wndsize(1024, 1024);
+
+  const recv = kcpObject.recv();
+  console.log(recv);
+  if(recv) {
+    const kcpAddr = kcpObject.context();
+    console.log(`[KCP] Received: ${recv} from ${kcpAddr.address}:${kcpAddr.port}`);
+    kcpObject.send("{retcode:0}");
+  }
+});
+
+kcpServer.on("listening", () => {
+  const address = kcpServer.address();
+  console.log(`[KCP] Started to listening on ${address.address}:${address.port}`);
+
+  setInterval(() => {
+    for(const info in kcpClients) {
+      const kcpObject = kcpClients[info];
+      kcpObject.update(Date.now());
+
+      const recv = kcpObject.recv();
+      if(recv) {
+        const kcpAddr = kcpObject.context();
+        console.log(`[KCP] Received: ${recv} from ${kcpAddr.address}:${kcpAddr.port}`);
+        kcpObject.send("{code:0}");
+      }
+    }
+  }, interval);
+});
+
+kcpServer.on("error", console.error);
+kcpServer.on("connect", console.info);
+kcpServer.on("close", console.warn);
+
+export default kcpServer;
+
+
+// function handleHandshake(data: Buffer, type: number) {
+//   console.log(`Handling handshake, with type 0x${type.toString(16)}`);
+
+//   switch(type) {
+//     case 0xCF: {  /* 0xCF New Connection */
+//       const handshake = new HandshakePacket(data);
+//       const resConv = Date.now() % (2 ** 32);
+//       const resToken = Math.abs(0xFFCCEEBB ^ ((Date.now() >> 32) & 0xFFFFFFFF));
+//       return HandshakePacket.create(0x145, resConv, resToken, 0x499602D2, 0x14514545);
+//     }
+//     default: {
+//       // TODO
+//     }
+//   }
+
+//   return null;
+// }

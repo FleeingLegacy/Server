@@ -1,0 +1,32 @@
+export default class IncomingPacket {
+  bytes: Buffer;
+  conv1: number;
+  conv2: number;
+  cmd: number;
+  frag: number;
+  wnd: number;
+  ts: number;
+  serial: number;
+  una: number;
+  len: number;
+  payload: Buffer;
+
+  constructor(bytes: Buffer) {
+    this.bytes = bytes;
+
+    if(bytes.byteLength < 28) {
+      throw new Error("Provided byte buffer has less than 28 bytes");
+    }
+
+    this.conv1 = bytes.readUInt32BE(0);
+    this.conv2 = bytes.readUInt32BE(4);
+    this.cmd = bytes.readUInt8(8);
+    this.frag = bytes.readUInt8(9);
+    this.wnd = bytes.readUInt16BE(10);
+    this.ts = bytes.readUInt32BE(12);
+    this.serial = bytes.readUInt32BE(16);
+    this.una = bytes.readUInt32BE(20);
+    this.len = bytes.readUInt32BE(24);
+    this.payload = bytes.subarray(28);
+  }
+}

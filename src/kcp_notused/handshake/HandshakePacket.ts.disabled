@@ -1,0 +1,37 @@
+// Referenced from Pancake
+
+export default class HandshakePacket {
+  magic1 = 0;
+  conv = 0;
+  token = 0;
+  data = 0;
+  magic2 = 0;
+
+  constructor(packet: Buffer) {
+    this.magic1 = packet.readUInt32BE(0);
+    this.conv = packet.readUInt32BE(4);
+    this.token = packet.readUInt32BE(8);
+    this.data = packet.readUInt32BE(12);
+    this.magic2 = packet.readUInt32BE(16);
+  }
+
+  static create(magic1: number, conv: number, token: number, data: number, magic2: number): HandshakePacket {
+    const buff = Buffer.alloc(20);
+    buff.writeUInt32BE(magic1, 0);
+    buff.writeUInt32BE(conv, 4);
+    buff.writeUInt32BE(token, 8);
+    buff.writeUInt32BE(data, 12);
+    buff.writeUInt32BE(magic2, 16);
+    return new HandshakePacket(buff);
+  }
+
+  encode(): Buffer {
+    const buff = Buffer.alloc(20);
+    buff.writeUInt32BE(this.magic1, 0);
+    buff.writeUInt32BE(this.conv, 4);
+    buff.writeUInt32BE(this.token, 8);
+    buff.writeUInt32BE(this.data, 12);
+    buff.writeUInt32BE(this.magic2, 16);
+    return buff;
+  }
+}
